@@ -13,7 +13,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Environment
         run: |
@@ -53,11 +53,11 @@ jobs:
           shasum -a 256 MECare-Simulator.app.zip | tee MECare-Simulator.sha256
           echo 'BUILD SUCCEEDED' | tee MECare_BUILD_SUCCESS.txt
 
-      - name: Upload build logs
+      - name: Upload simulator build logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: MECare-build-logs
+          name: MECare-simulator-build-logs
           path: build_logs/
           if-no-files-found: warn
           retention-days: 7
@@ -71,5 +71,82 @@ jobs:
             MECare-Simulator.app.zip
             MECare-Simulator.sha256
             MECare_BUILD_SUCCESS.txt
+          if-no-files-found: error
+          retention-days: 7
+
+  build-ios-device-unsigned:
+    name: Xcode iPhone Device Build - Unsigned
+    needs: build-ios-simulator
+    runs-on: macos-26
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Environment
+        run: |
+          sw_vers
+          xcodebuild -version
+          uname -m
+
+      - name: Build MECare for physical iPhone SDK without signing
+        run: |
+          set -o pipefail
+          mkdir -p device_build_logs
+          xcodebuild \
+            -project MECare.xcodeproj \
+            -scheme MECare \
+            -configuration Debug \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath DeviceDerivedData \
+            CODE_SIGN_IDENTITY='' \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            clean build 2>&1 | tee device_build_logs/MECare_Device_xcodebuild.log
+
+      - name: Validate unsigned device application
+        run: |
+          set -euo pipefail
+          APP='DeviceDerivedData/Build/Products/Debug-iphoneos/MECare.app'
+          test -d "$APP"
+          test -f "$APP/MECare"
+          file "$APP/MECare" | tee MECare-Device-Binary.txt
+          codesign -dv "$APP" > MECare-Codesign-Inspection.txt 2>&1 || true
+
+      - name: Package unsigned IPA
+        run: |
+          set -euo pipefail
+          APP='DeviceDerivedData/Build/Products/Debug-iphoneos/MECare.app'
+          rm -rf Payload MECare-Unsigned.ipa
+          mkdir -p Payload
+          ditto "$APP" 'Payload/MECare.app'
+          /usr/bin/zip -qry MECare-Unsigned.ipa Payload
+          shasum -a 256 MECare-Unsigned.ipa | tee MECare-Unsigned.sha256
+          echo 'UNSIGNED IPHONE DEVICE BUILD SUCCEEDED' | tee MECare_DEVICE_BUILD_SUCCESS.txt
+          ls -lh MECare-Unsigned.ipa
+
+      - name: Upload device build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MECare-device-build-logs
+          path: |
+            device_build_logs/
+            MECare-Device-Binary.txt
+            MECare-Codesign-Inspection.txt
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload unsigned MECare IPA
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MECare-iPhone-Unsigned
+          path: |
+            MECare-Unsigned.ipa
+            MECare-Unsigned.sha256
+            MECare_DEVICE_BUILD_SUCCESS.txt
           if-no-files-found: error
           retention-days: 7
