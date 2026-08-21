@@ -8,6 +8,9 @@ MECare is an Arabic-first iPhone medication reminder app with a simple elderly-f
 
 ## Build status
 
-This repository includes a GitHub Actions workflow that compiles the app for the iOS Simulator on a hosted macOS runner without code signing.
+GitHub Actions now performs two free macOS/Xcode validation builds on every push to `main`:
 
-Real-device installation and TestFlight/App Store distribution require Apple code signing and provisioning.
+1. iOS Simulator build without code signing.
+2. Physical iPhone SDK build without code signing, packaged as an unsigned IPA for later signing.
+
+Real-device installation, TestFlight, and App Store distribution still require Apple code signing and provisioning.
