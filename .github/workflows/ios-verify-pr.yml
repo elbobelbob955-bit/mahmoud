@@ -1,0 +1,90 @@
+name: MECare v0.1.0 Verification
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  verify-simulator:
+    name: Verify MECare_v0.1.0 Simulator
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Build simulator
+        run: |
+          set -o pipefail
+          mkdir -p verify_logs
+          xcodebuild \
+            -project MECare.xcodeproj \
+            -scheme MECare \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath VerifyDerivedData \
+            CODE_SIGN_IDENTITY='' \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            clean build 2>&1 | tee verify_logs/MECare_v0.1.0_Simulator_Verify.log
+      - name: Package simulator
+        run: |
+          set -euo pipefail
+          APP='VerifyDerivedData/Build/Products/Debug-iphonesimulator/MECare.app'
+          test -d "$APP"
+          ditto -c -k --sequesterRsrc --keepParent "$APP" MECare_v0.1.0_Simulator_Verified.app.zip
+          shasum -a 256 MECare_v0.1.0_Simulator_Verified.app.zip | tee MECare_v0.1.0_Simulator_Verified.sha256
+      - name: Upload simulator verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: MECare_v0.1.0_Simulator_Verified
+          path: |
+            MECare_v0.1.0_Simulator_Verified.app.zip
+            MECare_v0.1.0_Simulator_Verified.sha256
+            verify_logs/
+          retention-days: 7
+
+  verify-device:
+    name: Verify MECare_v0.1.0 iPhone Device Unsigned
+    needs: verify-simulator
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Build device unsigned
+        run: |
+          set -o pipefail
+          mkdir -p verify_device_logs
+          xcodebuild \
+            -project MECare.xcodeproj \
+            -scheme MECare \
+            -configuration Debug \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath VerifyDeviceDerivedData \
+            CODE_SIGN_IDENTITY='' \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            clean build 2>&1 | tee verify_device_logs/MECare_v0.1.0_Device_Verify.log
+      - name: Package unsigned IPA
+        run: |
+          set -euo pipefail
+          APP='VerifyDeviceDerivedData/Build/Products/Debug-iphoneos/MECare.app'
+          test -d "$APP"
+          rm -rf Payload MECare_v0.1.0_Unsigned_Verified.ipa
+          mkdir -p Payload
+          ditto "$APP" 'Payload/MECare.app'
+          /usr/bin/zip -qry MECare_v0.1.0_Unsigned_Verified.ipa Payload
+          shasum -a 256 MECare_v0.1.0_Unsigned_Verified.ipa | tee MECare_v0.1.0_Unsigned_Verified.sha256
+          echo 'MECare_v0.1.0 DEVICE BUILD VERIFIED' > MECare_v0.1.0_Verification_SUCCESS.txt
+      - name: Upload device verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: MECare_v0.1.0_iPhone_Unsigned_Verified
+          path: |
+            MECare_v0.1.0_Unsigned_Verified.ipa
+            MECare_v0.1.0_Unsigned_Verified.sha256
+            MECare_v0.1.0_Verification_SUCCESS.txt
+            verify_device_logs/
+          retention-days: 7
