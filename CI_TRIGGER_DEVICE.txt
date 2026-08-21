@@ -1,0 +1,2 @@
+Trigger current MECare workflow with simulator and unsigned iPhone device jobs.
+Generated: 2026-08-21T17:04Z
