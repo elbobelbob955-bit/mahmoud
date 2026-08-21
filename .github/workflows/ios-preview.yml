@@ -1,4 +1,4 @@
-name: MECare v0.5.0 Visual Preview
+name: MECare v0.5.1 Visual Preview
 
 on:
   pull_request:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   visual-preview:
-    name: Run MECare_v0.5.0 on iPhone Simulator
+    name: Run MECare_v0.5.1 on iPhone Simulator
     runs-on: macos-26
     timeout-minutes: 30
 
@@ -29,7 +29,7 @@ jobs:
             CODE_SIGN_IDENTITY='' \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            clean build 2>&1 | tee Logs/MECare_v0.5.0_Preview_xcodebuild.log
+            clean build 2>&1 | tee Logs/MECare_v0.5.1_Preview_xcodebuild.log
 
       - name: Select and boot iPhone Simulator
         run: |
@@ -59,36 +59,36 @@ jobs:
         run: |
           set -euo pipefail
           BUNDLE_ID='com.engineermahmoudebid.mecare'
-          rm -f Preview/MECare_v0.5.0_Launch.mp4
-          xcrun simctl io "$UDID" recordVideo --codec=h264 Preview/MECare_v0.5.0_Launch.mp4 > Logs/video_recording.log 2>&1 &
+          rm -f Preview/MECare_v0.5.1_Launch.mp4
+          xcrun simctl io "$UDID" recordVideo --codec=h264 Preview/MECare_v0.5.1_Launch.mp4 > Logs/video_recording.log 2>&1 &
           VIDEO_PID=$!
           sleep 1
           xcrun simctl launch --terminate-running-process "$UDID" "$BUNDLE_ID" | tee Logs/app_launch.txt
           sleep 1
-          xcrun simctl io "$UDID" screenshot Preview/01_MECare_v0.5.0_Splash.png
+          xcrun simctl io "$UDID" screenshot Preview/01_MECare_v0.5.1_Splash.png
           sleep 3
-          xcrun simctl io "$UDID" screenshot Preview/02_MECare_v0.5.0_Home.png
+          xcrun simctl io "$UDID" screenshot Preview/02_MECare_v0.5.1_Home.png
           sleep 3
           kill -INT "$VIDEO_PID" || true
           wait "$VIDEO_PID" || true
-          test -s Preview/01_MECare_v0.5.0_Splash.png
-          test -s Preview/02_MECare_v0.5.0_Home.png
-          test -s Preview/MECare_v0.5.0_Launch.mp4
+          test -s Preview/01_MECare_v0.5.1_Splash.png
+          test -s Preview/02_MECare_v0.5.1_Home.png
+          test -s Preview/MECare_v0.5.1_Launch.mp4
 
       - name: Verify app remains running
         run: |
           set -euo pipefail
           xcrun simctl spawn "$UDID" launchctl print system | grep -F 'com.engineermahmoudebid.mecare' > Preview/runtime_check.txt || true
-          xcrun simctl io "$UDID" screenshot Preview/03_MECare_v0.5.0_Running.png
-          test -s Preview/03_MECare_v0.5.0_Running.png
+          xcrun simctl io "$UDID" screenshot Preview/03_MECare_v0.5.1_Running.png
+          test -s Preview/03_MECare_v0.5.1_Running.png
           shasum -a 256 Preview/* | tee Preview/SHA256SUMS.txt
-          echo 'MECare_v0.5.0 VISUAL SIMULATOR PREVIEW SUCCEEDED' | tee Preview/PREVIEW_SUCCESS.txt
+          echo 'MECare_v0.5.1 VISUAL SIMULATOR PREVIEW SUCCEEDED' | tee Preview/PREVIEW_SUCCESS.txt
 
       - name: Upload visual preview
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: MECare_v0.5.0_Visual_Preview
+          name: MECare_v0.5.1_Visual_Preview
           path: |
             Preview/
             Logs/
