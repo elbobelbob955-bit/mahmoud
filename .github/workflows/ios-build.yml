@@ -1,0 +1,75 @@
+name: MECare iOS Build
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-ios-simulator:
+    name: Xcode Simulator Build
+    runs-on: macos-26
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Environment
+        run: |
+          sw_vers
+          xcodebuild -version
+          uname -m
+
+      - name: Validate project
+        run: |
+          set -euo pipefail
+          test -f MECare.xcodeproj/project.pbxproj
+          xcodebuild -project MECare.xcodeproj -list
+
+      - name: Build MECare for iOS Simulator
+        run: |
+          set -o pipefail
+          mkdir -p build_logs
+          xcodebuild \
+            -project MECare.xcodeproj \
+            -scheme MECare \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath DerivedData \
+            CODE_SIGN_IDENTITY='' \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            clean build 2>&1 | tee build_logs/MECare_xcodebuild.log
+
+      - name: Package simulator artifact
+        if: success()
+        run: |
+          set -euo pipefail
+          APP='DerivedData/Build/Products/Debug-iphonesimulator/MECare.app'
+          test -d "$APP"
+          ditto -c -k --sequesterRsrc --keepParent "$APP" MECare-Simulator.app.zip
+          shasum -a 256 MECare-Simulator.app.zip | tee MECare-Simulator.sha256
+          echo 'BUILD SUCCEEDED' | tee MECare_BUILD_SUCCESS.txt
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MECare-build-logs
+          path: build_logs/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload MECare simulator app
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MECare-iOS-Simulator
+          path: |
+            MECare-Simulator.app.zip
+            MECare-Simulator.sha256
+            MECare_BUILD_SUCCESS.txt
+          if-no-files-found: error
+          retention-days: 7
